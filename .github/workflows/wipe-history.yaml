@@ -1,0 +1,58 @@
+name: Wipe repository history to single commit (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type YES to confirm destructive operation (required).'
+        required: true
+        default: 'NO'
+      target_branch:
+        description: 'Target branch to overwrite (default: main).'
+        required: true
+        default: 'main'
+      create_backup_branch:
+        description: 'Create a backup branch before overwrite? (true/false).'
+        required: true
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  wipe-history:
+    name: Wipe history
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Validate confirmation input
+        env:
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          if [ "${CONFIRM}" != "YES" ]; then
+            echo "Confirmation not provided or not YES. To run this destructive workflow, set confirm=YES."
+            exit 1
+          fi
+          echo "Confirmed."
+
+      - name: Ensure script is present
+        run: |
+          if [ ! -f .github/scripts/wipe-history.sh ]; then
+            echo ".github/scripts/wipe-history.sh not found. Add the script and try again."
+            exit 1
+          fi
+          chmod +x .github/scripts/wipe-history.sh
+
+      - name: Run wipe-history script
+        env:
+          TARGET_BRANCH: ${{ github.event.inputs.target_branch }}
+          CREATE_BACKUP: ${{ github.event.inputs.create_backup_branch }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/wipe-history.sh
